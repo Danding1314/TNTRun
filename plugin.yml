@@ -1,0 +1,20 @@
+name: TNTRun
+version: 1.0.0_TEST
+main: yl14\TNTRun\TNTRun
+author: 游乐14
+depend:
+  - GameCoreAPI
+softdepend:
+  - GameWizard
+api:
+  - 3.9.3
+
+permissions:
+  tntrun.op:
+    description: op permission
+    default: op
+
+commands:
+  tntr:
+    permission: tntrun.op
+    description: TNTRun by 游乐14，一切为了滑稽岛
