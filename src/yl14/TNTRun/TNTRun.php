@@ -1,148 +1,205 @@
 <?php
 
-namespace yl14\TNTRun;
+declare(strict_types=1);
 
-/**
- * 游乐14制作
- * 一切为了滑稽岛
- * @8/12/2019
- */
+namespace yl14\TNTRun;
 
 use pocketmine\plugin\PluginBase;
 use pocketmine\utils\{
     TextFormat as TF, Config
 };
 use pocketmine\command\{
-    CommandSender, Command
+    Command, CommandSender
 };
-
-use yl13\GameCoreAPI\GameCoreAPI;
 
 class TNTRun extends PluginBase {
 
-    /** * @var string*/
-    private $gcid;
-
-    /** *@var TNTRun*/
-    private static $instance;
-
-    /** *@var TNTRunSession[]*/
     private $Sessions = [];
-
-    /** *@var Array*/
     private $onset = [];
 
-    public function onEnable() : void{
-        $this->gcid = GameCoreAPI::getInstance()->api->getGameCoreAPI()->registerGame("TNT跑酷", "游乐14");
-        $this->getLogger()->notice(TF::GREEN . "TNT跑酷插件已启动！作者:游乐14");
-        $this->getLogger()->notice(TF::YELLOW . "当前版本: v1.0.0_TEST");
+    private static $instance;
+
+    public function onEnable() {
+        $this->getLogger()->notice(TF::YELLOW . 'TNTRun初始化中...');
+        if(!is_dir($this->getDataFolder())) {
+            @mkdir($this->getDataFolder());
+        }
+        if(!is_dir($this->getDataFolder() . 'rooms')) {
+            @mkdir($this->getDataFolder() . 'rooms');
+        }
+        $this->getServer()->getPluginManager()->registerEvents(new EventListener($this), $this);
+        $this->getLogger()->notice(TF::GREEN . 'TNTRun启动!');
     }
 
-    public function onLoad() : void{
+    public function onLoad() {
         self::$instance = $this;
     }
 
-    public function onDisable() : void{
-        $this->getLogger()->warning("TNT跑酷已关闭！");
+    public function onDisable() {
+        $this->getLogger()->warning("TNTRun已关闭");
     }
 
-    static public function getInstance() :TNTRun {
+    public function getInstance() : TNTRun {
         return self::$instance;
     }
 
-    public function findSession(Array $filter = []) : ?int {
-        if(isset($filter['map'])) {
+    public function SearchSession(array $filter = []) :bool{
+        //filter not implement yet
+        //TODO
+    }
 
+    public function saveSession(int $sessionid, TNTRunSession $Session) {
+        if(isset($this->Sessions[$sessionid])) {
+            $this->Sessions[$sessionid] = $Session;
         }
-        //TODO
     }
 
-    private function getSession(int $sessionid) : TNTRunSession {
-        //TODO
+    private function createSession(int $sessionid, array $position, array $settings) : bool{
+        if(!isset($this->Sessions[$sessionid])) {
+            $this->Sessions[$sessionid] = new TNTRunSession($this, $sessionid, $position, $settings);
+            $this->debug("Created Session with id" . $sessionid);
+            return true;
+        }
+        return false;
     }
 
-    private function createSession() {}
+    private function debug($message) {
+        $this->getLogger()->notice(TF::GRAY . "[DEBUG]" . TF::RESET . $message);
+    }
 
     public function onCommand(CommandSender $sender, Command $cmd, string $label, array $args) : bool {
         $name = $cmd->getName();
         if($name == "tntr") {
+            if(!$sender instanceof \pocketmine\Player) {
+                $sender->sendMessage(TF::RED . "只允许玩家使用！");
+                return false;
+            }
             if(!isset($args[0])) {
-                if($sender instanceof \pocketmine\Player) {
-                    $sender->chat("/tntr help");
-                    return true;
-                }
+                $sender->chat("/tntr help");
+                return true;
             }
             switch($args[0]) {
 
                 default:
-                    if($sender instanceof \pocketmine\Player) {
-                        $sender->chat("/tntr help");
-                        return true;
-                    }
-                    return false;
+                    $sender->chat("/tntr help");
+                    return true;
                 break;
 
                 case 'help':
-                    $message = [
-                        '=====TNT跑酷帮助=====',
-                        '/tntr help 帮助界面',
-                        '/tntr c/create <name> 创建新的游戏房间配置文件',
-                        '/tntr r/remove <name> 移除游戏房间配置文件',
-                        '/tntr reload <name> 重载游戏房间配置文件'
+                    $msg = [
+                        '=====TNTRun帮助=====',
+                        '/tntr help TNTRun的帮助界面',
+                        '/tntr c/create <房间名> 创建新的TNTRun的房间配置文件',
+                        '/tntr r/remove <房间名> 移除TNTRun的房间配置文件',
+                        '/tntr r/reload <房间名> 重新加载TNTRun的房间配置文件'
                     ];
-                    $sender->sendMessage(implode("\n", $message));
+                    $sender->sendMessage(implode("\n", $msg));
                     return true;
                 break;
 
                 case 'c':
                 case 'create':
                     if(!isset($args[1])) {
-                        $sender->sendMessage(TF::RED . "输入错误，请检查你的指令");
-                        return false;
-                    }
-                    if(!$sender instanceof \pocketmine\Player) {
-                        $sender->sendMessage(TF::RED . "你不是玩家！");
+                        $sender->sendMessage(TF::RED . "指令输入错误！");
+                        $sender->chat("/tntr help");
                         return false;
                     }
                     if(isset($this->onset[$sender->getName()])) {
-                        $sender->sendMessage(TF::GREEN . "已取消房间" . $this->onset[$sender->getName()]['name'] . "的设置");
-                        unset($this->onset[$sender->getName()]);
+                        $sender->sendMessage(TF::GREEN . "已停止创建" . TF::WHITE . $this->onset[$sender->getName()]['name']);
                         return true;
+                    }
+                    if(is_file($this->getDataFolder() . 'rooms/' . $args[1] . '.yml')) {
+                        $sender->sendMessage(TF::RED . "输入的名字和已存在的配置文件重名，请换一个名字！");
+                        return false;
                     }
                     $this->onset[$sender->getName()] = array(
                         'name' => $args[1],
                         'position' => array(
-                            'play' => array(
-                                'x' => 0,
-                                'y' => 0,
-                                'z' => 0,
-                                'level' => 'world'
-                            ),
                             'wait' => array(
-                                'x' => 0,
-                                'y' => 0,
-                                'z' => 0,
-                                'level' => 'world'
+                                'x' => $sender->x,
+                                'y' => $sender->y,
+                                'z' => $sender->z,
+                                'level' => $sender->getLevel()->getFolderName()
+                            ),
+                            'play' => array(
+                                'x' => $sender->x,
+                                'y' => $sender->y,
+                                'z' => $sender->z,
+                                'level' => $sender->getLevel()->getFolderName()
                             )
                         ),
                         'settings' => array(
-                            'maxplayer' => 10,
+                            'waittime' => 10,
+                            'gametime' => 300,
                             'minplayer' => 2,
-                            'gametime' => 300
+                            'maxplayer' => 20
                         )
                     );
-                    $sender->sendMessage("你开始创建房间" . $args[1] . ",输入/tntr p可以设置游玩地点，/tntr w可以设置玩家等待地点，一切设置完后，输入/tntr f即可完成");
+                    $sender->sendMessage("开始设置" . $args[1] . ",设置等待地点输入/tntr w, 设置游玩地点输入/tntr p, 一切设置完成后,输入/tntr f完成配置");
                     return true;
                 break;
 
-                case 'p':
-                    if(!isset($this->onset[$sender->getName()])) {
-                        return false;
+                case 'r':
+                case 'remove':
+                    if(is_file($this->getDataFolder() . 'rooms/' . $args[1] . '.yml')) {
+                        $delete = unlink($this->getDataFolder() . 'rooms/' . $args[1] . '.yml');
+                        if(!$delete) {
+                            $sender->sendMessage(TF::RED . "无法删除文件，pm是否有足够的权限？");
+                            return true;
+                        }
+                        $sender->sendMessage(TF::GREEN . "删除房间配置文件" . TF::WHITE . $args[1] . TF::GREEN . "成功");
+                        return true;
                     }
-                    $this->onset[$sender->getName()]['position']['x'] = $sender->x;
-                    $this->onset[$sender->getName()]['position']['y'] = $sender->y;
-                    $this->onset[$sender->getName()]['position']['z'] = $sender->z;
-                    $this->onset[$sender->getName()]['position']['level'] = ;
+                    $sender->sendMessage(TF::RED . "无法找到房间配置文件" . TF::WHITE . $args[1] . TF::RED . ",你真的有创建它吗？");
+                    return true;
+                break;
+
+                case 'r':
+                case 'reload':
+                    if(is_file($this->getDataFolder() . 'rooms/' . $args[1] . '.yml')) {
+                        $config = new Config($this->getDataFolder() . 'rooms/' . $args[1] . '.yml');
+                        $config->reload();
+                        $sender->sendMessage(TF::GREEN . "房间配置文件" . TF::WHITE . $args[1] . TF::GREEN . "重载成功！");
+                        return true;
+                    }
+                    $sender->sendMessage(TF::RED . "无法找到房间配置文件" . TF::WHITE . $args[1] . TF::RED . ",你真的有创建它吗？");
+                    return true;
+                break;
+
+                case 'w':
+                   if(isset($this->onset[$sender->getName()])) {
+                        $this->onset[$sender->getName()]['position']['wait']['x'] = $sender->x;
+                        $this->onset[$sender->getName()]['position']['wait']['y'] = $sender->y;
+                        $this->onset[$sender->getName()]['position']['wait']['z'] = $sender->z;
+                        $this->onset[$sender->getName()]['position']['wait']['level'] = $sender->getLevel()->getFolderName();
+                        $sender->sendMessage("设置等待地点:\nx:" . $sender->x . "\ny:" . $sender->y . "\nz:" . $sender->z . "\nlevel:" . $sender->getLevel()->getFolderName());
+                        return true;
+                   }
+                   return false;
+                break;
+
+                case 'p':
+                    if(isset($this->onset[$sender->getName()])) {
+                        $this->onset[$sender->getName()]['position']['play']['x'] = $sender->x;
+                        $this->onset[$sender->getName()]['position']['play']['y'] = $sender->y;
+                        $this->onset[$sender->getName()]['position']['play']['z'] = $sender->z;
+                        $this->onset[$sender->getName()]['position']['play']['level'] = $sender->getLevel()->getFolderName();
+                        $sender->sendMessage("设置游玩地点:\nx:" . $sender->x . "\ny:" . $sender->y . "\nz:" . $sender->z . "\nlevel:" . $sender->getLevel()->getFolderName());
+                        return true;
+                    }
+                    return false;
+                break;
+
+                case 'f':
+                    if(isset($this->onset[$sender->getName()])) {
+                        $name = $this->onset[$sender->getName()]['name'];
+                        $config = new Config($this->getDataFolder() . 'rooms/' . $name . '.yml');
+                        $config->setAll($this->onset[$sender->getName()]);
+                        $config->save();
+                        unset($this->onset[$sender->getName()]);
+                        $sender->sendMessage(TF::GREEN . "已完成" . TF::WHITE. $name . TF::GREEN . "的设置，依然有更多设置可以进行哦，比如等待时间啥的，可以进入配置文件里面调整后再/tntr reload你的文件");
+                        return true;
+                    }
             }
         }
     }
