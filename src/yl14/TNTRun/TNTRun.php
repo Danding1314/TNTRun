@@ -50,7 +50,14 @@ class TNTRun extends PluginBase {
 
     public function SearchSession(array $filter = []) : bool{
         //filter not implement yet
-        //TODO
+        foreach($this->Sessions as $Session) {
+            if($Session instanceof TNTRunSession) {
+                $Status = $Session->getStatus();
+                if($Status == 0 or $Status == 1) { //这些状态下玩家都可以加入游戏
+                    //TODO
+                }
+            }
+        }
     }
 
     public function saveSession(int $sessionid, TNTRunSession $Session) {
@@ -62,6 +69,7 @@ class TNTRun extends PluginBase {
     private function createSession(int $sessionid, array $position, array $settings) : bool{
         if(!isset($this->Sessions[$sessionid])) {
             $this->Sessions[$sessionid] = new TNTRunSession($this, $sessionid, $position, $settings);
+            GameCoreAPI::getInstance()->api->chatchannel->create($this->gcid, (string)$sessionid);
             $this->debug("Created Session with id" . $sessionid);
             return true;
         }

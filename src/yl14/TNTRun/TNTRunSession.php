@@ -10,6 +10,8 @@ class TNTRunSession {
 
     private $sessionid = 0;
     private $plugin;
+    
+    private $status = 0;
 
     private $players = [];
     private $spectators = [];
@@ -67,6 +69,10 @@ class TNTRunSession {
         return $this->spectators;
     }
 
+    public function getStatus() : int {
+        return $this->status;
+    }
+
     public function addPlayer(Player $player) : bool {
         if(!isset($this->players[$player->getName()])) {
             $this->players[$player->getName()] = $player;
@@ -101,5 +107,10 @@ class TNTRunSession {
             return true;
         }
         return false;
+    }
+
+    public function setStatus(int $status) {
+        $this->status = $status;
+        $this->plugin->getServer()->getPluginManager()->callEvent(new \yl14\TNTRun\event\TNTRunSessionModifyEvent($this->plugin, $this));
     }
 }
