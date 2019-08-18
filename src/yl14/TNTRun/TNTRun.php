@@ -12,7 +12,11 @@ use pocketmine\command\{
     Command, CommandSender
 };
 
+use yl13\GameCoreAPI\GameCoreAPI;
+
 class TNTRun extends PluginBase {
+
+    private $gcid = 0;
 
     private $Sessions = [];
     private $onset = [];
@@ -21,6 +25,7 @@ class TNTRun extends PluginBase {
 
     public function onEnable() {
         $this->getLogger()->notice(TF::YELLOW . 'TNTRun初始化中...');
+        $this->gcid = GameCoreAPI::getInstance()->api->gamecore->registerGame("TNTRun", "游乐14");
         if(!is_dir($this->getDataFolder())) {
             @mkdir($this->getDataFolder());
         }
@@ -39,11 +44,11 @@ class TNTRun extends PluginBase {
         $this->getLogger()->warning("TNTRun已关闭");
     }
 
-    public function getInstance() : TNTRun {
+    static public function getInstance() : TNTRun {
         return self::$instance;
     }
 
-    public function SearchSession(array $filter = []) :bool{
+    public function SearchSession(array $filter = []) : bool{
         //filter not implement yet
         //TODO
     }
