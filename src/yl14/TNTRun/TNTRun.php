@@ -11,6 +11,8 @@ use pocketmine\utils\{
 use pocketmine\command\{
     Command, CommandSender
 };
+use pocketmine\level\Position;
+use pocketmine\Player;
 
 use yl13\GameCoreAPI\GameCoreAPI;
 
@@ -48,16 +50,44 @@ class TNTRun extends PluginBase {
         return self::$instance;
     }
 
-    public function SearchSession(array $filter = []) : bool{
+    public function SearchSession(Player $player, array $filter = []) : bool{
         //filter not implement yet
         foreach($this->Sessions as $Session) {
             if($Session instanceof TNTRunSession) {
-                $Status = $Session->getStatus();
-                if($Status == 0 or $Status == 1) { //这些状态下玩家都可以加入游戏
-                    //TODO
+                $join = $this->joinSession($player, $Session->getSessionId());
+                if($join) {
+                    return true;
                 }
+                continue;
             }
+            continue;
         }
+        //啥都没有欸，那接下来需要创建一个新的房间
+    }
+
+    private function joinSession(Player $player, int $sessionid) : bool{
+        $Session = $this->getSession($sessionid);
+        if($Session instanceof TNTRunSession) {
+            if($Session->getStatus() == 0 or $Session->getStatus() == 1) {
+                if(!(count($Session->getPlayers()) + 1) > $Session->getMaxPlayer()) {
+                    //ok没问题了
+                    $Session->addPlayer($player);
+                    $waitposition = $Session->getWaitPosition();
+                    $player->teleport(new Position($waitposition['x'], $waitposition['y'], $waitposition['z'], $this->getServer()->getLevelByName($waitposition['level'])));
+                    $player->setImmobile();
+                    GameCoreAPI::getInstance()->api->getChatChannelAPI()->addPlayer($this->gcid, (string)$sessionid, array($player));
+                    GameCoreAPI::getInstance()->api->getChatChannelAPI()->broadcastMessage($this->gcid, (string)$sessionid, $player->getName() . TF::GREEN . "加入了房间！");
+                    return true;
+                }
+                return false;
+            }
+            return false;
+        }
+        return false;
+    }
+
+    public function getSession(int $sessionid) : ?TNTRunSession{
+        return $this->Sessions[$sessionid] ?? null;
     }
 
     public function saveSession(int $sessionid, TNTRunSession $Session) {
@@ -69,7 +99,7 @@ class TNTRun extends PluginBase {
     private function createSession(int $sessionid, array $position, array $settings) : bool{
         if(!isset($this->Sessions[$sessionid])) {
             $this->Sessions[$sessionid] = new TNTRunSession($this, $sessionid, $position, $settings);
-            GameCoreAPI::getInstance()->api->chatchannel->create($this->gcid, (string)$sessionid);
+            GameCoreAPI::getInstance()->api->getChatChannelAPI()->create($this->gcid, (string)$sessionid);
             $this->debug("Created Session with id" . $sessionid);
             return true;
         }
