@@ -62,7 +62,7 @@ class TNTRun extends PluginBase {
             }
             continue;
         }
-        //啥都没有欸，那接下来需要创建一个新的房间
+        $room = $this->randRoom();
     }
 
     private function joinSession(Player $player, int $sessionid) : bool{
@@ -104,6 +104,14 @@ class TNTRun extends PluginBase {
             return true;
         }
         return false;
+    }
+
+    private function randRoom() : ?Config {
+        $roomDir = $this->getDataFolder() . 'rooms/';
+        $rooms = [];
+        foreach(scandir($roomDir) as $dir) {
+            var_dump($dir);
+        }
     }
 
     private function debug($message) {
