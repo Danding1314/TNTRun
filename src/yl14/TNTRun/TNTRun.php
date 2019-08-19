@@ -27,7 +27,7 @@ class TNTRun extends PluginBase {
 
     public function onEnable() {
         $this->getLogger()->notice(TF::YELLOW . 'TNTRun初始化中...');
-        $this->gcid = GameCoreAPI::getInstance()->api->gamecore->registerGame("TNTRun", "游乐14");
+        $this->gcid = GameCoreAPI::getInstance()->api->getGameCoreAPI()->registerGame("TNTRun", "游乐14");
         if(!is_dir($this->getDataFolder())) {
             @mkdir($this->getDataFolder());
         }
@@ -63,6 +63,13 @@ class TNTRun extends PluginBase {
             continue;
         }
         $room = $this->randRoom();
+        if(!is_null($room)) {
+            $id = $this->randId();
+            $this->createSession($id, $room->get("position"), $room->get("settings"));
+            $this->joinSession($player, $id);
+            return true;
+        }
+        return false;
     }
 
     private function joinSession(Player $player, int $sessionid) : bool{
@@ -110,12 +117,28 @@ class TNTRun extends PluginBase {
         $roomDir = $this->getDataFolder() . 'rooms/';
         $rooms = [];
         foreach(scandir($roomDir) as $dir) {
-            var_dump($dir);
+            $info = pathinfo($dir);
+            if($info['extension'] == 'yml') {
+                $rooms .= $info['filename'];
+            }
         }
+        if(!empty($rooms)) {
+            shuffle($rooms);
+            return new Config($roomDir . $rooms[0] . '.yml');
+        }
+        return null;
     }
 
     private function debug($message) {
         $this->getLogger()->notice(TF::GRAY . "[DEBUG]" . TF::RESET . $message);
+    }
+
+    public function randId(int $digit = 8) {
+        $id = "";
+        for($i = 0; $i < $digit; $i++) {
+            $id .= mt_rand(0, 9);
+        }
+        return (int)$id;
     }
 
     public function onCommand(CommandSender $sender, Command $cmd, string $label, array $args) : bool {
